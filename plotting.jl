@@ -19,10 +19,10 @@ include("project2_jl/helpers.jl")
 include("project2_jl/simple.jl")
 include("project2_jl/project2.jl")
 
-x_rose_1, f_rose_1 = penalty_method(simple1, simple1_gradient, simple1_constraints, [1.4,0.4], 2000, "count") 
+x_rose_1, f_rose_1 = penaltyOptimization(simple1, simple1_gradient, simple1_constraints, [2.0,1.0], 2000, 2) 
 plot(collect(1:length(f_rose_1)), f_rose_1, xlabel = "Iteration", ylabel = "f(x)",  label="simple1, x0 = [1.4, 0.4]")
 savefig("Simple 1 Convergence.png")
-print(f_rose_1)
+# print(f_rose_1)
 
 # basis(i, n) = [k == i ? 1.0 : 0.0 for k in 1 : n]
 
