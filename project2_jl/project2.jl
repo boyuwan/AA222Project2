@@ -1,4 +1,5 @@
 #=
+Working kinda
         AA 222 Project 2, Constrained Optimization
         File Name: project2.jl
         File Description: This file implements two constrained optimization algorithms to optimize the given objective functions. 
@@ -50,15 +51,15 @@ Returns:
     - The location of the minimum
 """
 function optimize(f, g, c, x0, n, prob)
-    # if prob == "simple1" 
-        xhistory, fhistory = penalty_method(f, g, c, x0, n,"quadratic") 
+    #  if prob == "simple1" 
+        xhistory, fhistory = penaltyOptimization(f, g, c, x0, n, 2)   # "mixed" = 2, "count" = 1 or "quad" = 0
     # elseif prob == "simple2"
     #     xhistory, fhistory = hookeJeeves(f, g, x0, n, 1.5, 0.001, 0.5)
     # elseif prob == "simple3"
     #     xhistory, fhistory = hookeJeeves(f, g, x0, n, 0.5, 0.001, 0.5)
     # else 
     #     xhistory, fhistory = hookeJeeves(f, g, x0, n, 1, 0.001, 0.5)
-    # end
+    #  end
     # print("hi")
     x_best = xhistory[argmin(fhistory)]
     return x_best
@@ -70,21 +71,120 @@ end
 """
 basis(i, n) = [k == i ? 1.0 : 0.0 for k in 1 : n]
 
+function penaltyOptimization(f, g, c, x0, n, type; ρ=1.0, γ=5, rho1 = 1, rho2 = 1)
+    p_quad(x) = sum((max.(0,c(x))).^2)
+    p_count(x) = sum(max.(0,c(x)))
+    p_mixed(x) = rho1 * p_quad(x) + rho2 * p_count(x)
+    f_new(x) = 0
+
+    if type == 0
+        f_new(x) = f(x) + ρ*p_quad(x)
+    elseif type == 1
+        f_new(x) = f(x) + ρ*p_count(x)
+    elseif type == 2 
+        f_new(x) = f(x) + ρ*p_mixed(x)
+    end
+
+    dim = length(x0)
+    xold = zeros(dim,1)
+    xnew = zeros(dim,1)
+    xold = x0;
+    xnew = x0 - 0.001.*ones(dim)
+    Δ = Inf
+    gold = g(x0)
+    xhistory = [x0]
+    fhistory = [f_new(x0)]
+
+    while (count(f, g, c) < (n - 2*dim - 2*dim))
+        gnew = getGradient(f_new, xnew)
+        Δ = (xnew - xold)/(gnew - gold)*gnew
+        push!(xhistory, xnew)
+        push!(fhistory, f_new(xnew))
+        xold = xnew
+        xnew = xnew -  Δ
+        gold = gnew
+        ρ *= γ
+    end
+    # print(fhistory)
+
+    return xhistory, fhistory 
+
+end
+
+# Computing gradient with "Central Difference" method
+function getGradient(f, x; alpha = 0.001)
+    dim = length(x)
+    gradient = zeros(dim)
+    for i = 1 : dim
+        step = zeros(dim)
+        step[i] = alpha
+        xpos = x + step
+        xneg = x - step
+        gradient[i] = (f(xpos) - f(xneg))/(2.0*alpha)
+        # print(f(x))
+    end
+    return gradient
+end
+
+# function secant_method(f′, x0, x1, ε) 
+#     g0 = f′(x0)
+#     Δ = Inf
+#     while abs(Δ) > ε
+#             g1 = f′(x1)
+#             Δ = (x1 - x0)/(g1 - g0)*g1
+#             x0, x1, g0 = x1, x1 - Δ, g1
+#     end
+#     return x1 
+# end
+
+# Computing the approximation of Hessian using "Finite Difference" Method
+function getHessian(f, x; alpha = 0.0001)
+    dim = length(x)
+    hessian = zeros(dim,dim)
+    for i = 1:dim
+        for j = 1:dim
+            # If diagonal entries
+            if i == j
+                step = zeros(dim)
+                step[i] = alpha
+                x1 = x + step
+                x2 = x - step
+                hessian[i,j] = (f(x1) + f(x2) - 2.0*f(x))/(alpha*alpha)
+            else    # Else
+                step1 = zeros(dim)
+                step2 = zeros(dim)
+                step1[i] = alpha
+                step2[j] = alpha
+                x3 = x + step1 + step2
+                x4 = x + step1 - step2
+                x5 = x - step1 + step2
+                x6 = x - step1 - step2
+                hessian[i,j] = (f(x3) - f(x4) - f(x5) + f(x6))/(4.0*alpha*alpha)
+            end
+        end
+    end
+    return hessian
+end
+
 function pcount(c,x,p)
+    p = 0
     constraints = c(x)
     dim = length(constraints)
     for i in 1 : dim
-        violated = constraints[i] > 0 ? 1 : 0
+        violated = (constraints[i] > 0) ? 1 : 0
         p += violated 
+        #print(p)
+        #print("")
     end
     return p
 end
 
 function pquad(c,x,p)
+    p = 0
     constraints = c(x)
     dim = length(constraints)
     for i in 1 : dim
-        violated = constraints[i] > 0 ? constraints[i] : 0
+        violated = (constraints[i] > 0) ? constraints[i] : 0
         p += violated * violated
     end
     return p
